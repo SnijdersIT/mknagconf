@@ -1,6 +1,11 @@
 README for mkncf
-version: $Id: README,v 1.3 2003/05/04 20:39:20 als Exp $
-author: Alexander Schreiber <als@thangorodrim.de>
+
+modified by: Job Snijders <job@snijders-it.nl>
+author of mkncf-0.4: Alexander Schreiber <als@thangorodrim.de>
+
+Copyright (C) 2011 by Job Snijders <job@snijders-it.nl>
+Copyright (C) 2003 by Alexander Schreiber <als@thangorodrim.de>
+
 
 mkncf - MaKe Nagios Configuration Files
 ---------------------------------------
@@ -61,6 +66,13 @@ It is , however, strongly recommend to use the provided Makefile for mkncf,
 espcially the "check" target to use Nagios to validate your generated 
 .cfg files.
 
+IPv6 / Dual Stack support
+-------------------------
+
+This version of mkncf is meant to be run in conjunction with nagios3 and
+the "Add IPv6 address to host definition" patch which can be found here:
+http://exchange.nagios.org/directory/Patches/Nagios/Add-IPv6-address-to-host-definition/details
+or here: http://snijders-it.nl/stuff/nagios-3.2.3-ipv6.patch
 
 License:
 --------

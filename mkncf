@@ -4,12 +4,12 @@
 # 
 # A configuration file generator for Nagios.
 #
-# author: Alexander Schreiber <als@thangorodrim.de>
-# 
+# modified by: Job Snijders <job@snijders-it.nl>
+# author of mkncf-0.4: Alexander Schreiber <als@thangorodrim.de>
+#
+# Copyright (C) 2011 by Job Snijders <job@snijders-it.nl>
 # Copyright (C) 2003 by Alexander Schreiber <als@thangorodrim.de>
-#
-# version: $Id: mkncf,v 1.4 2003/05/08 19:49:02 als Exp $
-#
+# 
 # note: the script aborts with exit(1) on all error conditions
 # 
 ##########################################################################
