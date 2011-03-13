@@ -182,12 +182,14 @@ sub generate_host {
 # generate a host entry for Nagios hosts.cfg
 # parameters: $host_name -> host_name to use
 #             $address   -> IP address of host
+#	      $address6  -> IPv6 address of host (can be empty)
 #             $alias     -> alias name of host
 #             $parents   -> parent hosts for this host (can be empty)
 # returns: complete host entry on success, exit()s on error
 
     my $host_name = shift;
     my $address = shift;
+    my $address6 = shift;
     my $alias = shift;
     my $parents = shift;
 
@@ -216,6 +218,9 @@ sub generate_host {
     $host_def .= "    host_name               $host_name\n";
     $host_def .= "    alias                   $alias\n";
     $host_def .= "    address                 $address\n";
+    if ( $address6 =~ /^\S+$/ ) {
+	 $host_def .= "    address6                $address6\n";
+    }
     if ( $parents =~ /^\S+$/ ) {
          $host_def .= "    parents                 $parents\n";
     }
@@ -290,7 +295,7 @@ sub generate_hosts_cfg {
     my $hosts_base = shift;
     my $hosts_cfg = shift;
 
-    my ($host_name, $address, $parents, $alias);
+    my ($host_name, $address, $address6, $parents, $alias);
     my $base_def = '';
     my $line;
     my $host_entry;
@@ -337,8 +342,8 @@ sub generate_hosts_cfg {
         chomp($line);
         unless ( ( $line =~ /^\s*#/ ) or
                  ( $line =~ /^\s*$/ ) ) {
-            ($host_name, $address, $parents, $alias) = split(/\s*;\s*/, $line);
-            $host_entry = &generate_host($host_name, $address, 
+            ($host_name, $address, $address6, $parents, $alias) = split(/\s*;\s*/, $line);
+            $host_entry = &generate_host($host_name, $address, $address6,
                                          $alias, $parents);
             print CFG $host_entry;
         }
@@ -695,5 +700,3 @@ if ( $GenType{'hosts'} == 1 ) {
 if ( $GenType{'hostextinfo'} == 1 ) {
     &generate_hostextinfo('hostextinfo.def', 'hostextinfo.cfg');
 }
-
-
