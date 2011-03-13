@@ -1,0 +1,25 @@
+#
+# definition file for mkncf
+#
+# author: Alexander Schreiber <als@thangorodrim.de>
+#
+# version: $Id: services.def,v 1.2 2003/05/04 20:39:20 als Exp $
+#
+# services definitions files
+# 
+# lists services to be checked for each host
+#
+# used by mkncf
+#
+# format:
+#      host_name = service_name[,service_name]
+#
+# empty lines and comment lines (starting with #) are
+# ignored
+# service_name and host_name _CANNOT_ contain spaces
+#
+# example:
+#   hpserv = ping, ftp, telnet
+
+hpserv = ping, ftp, telnet
+

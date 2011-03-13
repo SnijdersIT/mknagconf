@@ -1,0 +1,699 @@
+#!/usr/bin/perl
+#
+# mkncf - MaKe Nagios Configuration Files
+# 
+# A configuration file generator for Nagios.
+#
+# author: Alexander Schreiber <als@thangorodrim.de>
+# 
+# Copyright (C) 2003 by Alexander Schreiber <als@thangorodrim.de>
+#
+# version: $Id: mkncf,v 1.4 2003/05/08 19:49:02 als Exp $
+#
+# note: the script aborts with exit(1) on all error conditions
+# 
+##########################################################################
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+
+
+use strict;
+use warnings;
+use diagnostics;
+
+# globals
+
+my %ServiceChecks = ();
+
+# functions
+
+sub load_file {
+# simple function to slurp a file into a string
+# parameters: $file -> the file to slurp
+# returns: contents of file as string
+
+    my $file = shift;
+    
+    my $line;
+    my $data = '';
+    my $error;
+
+    $error = 0;
+    unless ( -r $file ) {
+        print STDERR "error: file $file not readable\n";
+        exit(1);
+    }
+    open(FILE, "<$file") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open file $file for reading\n";
+        exit(1);
+    }
+    while ( $line = <FILE> ) {
+        $data .= $line;
+    }
+
+    close(FILE); # don't check for errors you don't know how to handle
+
+    return $data;
+}
+
+sub load_service_checks {
+# Loads the service check defintions for services.cfg from the file
+# specified and puts them into a hash which is returned.
+# parameters: $file -> file to load from
+# returns: %ServiceChecks on success, exit()s on error
+
+    my $file= shift;
+
+    my $line;
+    my %checks;
+
+    my ($service, $check);
+    my $error;
+
+    unless ( -r $file ) {
+        print STDERR "error: file $file not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(FILE, "<$file") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $file for reading\n";
+        exit(1);
+    }
+    while ( $line = <FILE> ) {
+        chomp($line);
+        unless ( ( $line =~ /^\s*#/ ) or
+                 ( $line =~ /^\s*$/ ) ) {
+            ($service, $check) = split(/\s*=\s*/, $line);
+# sanity checks for empty values
+            if  ( $service eq '' )  {
+                print STDERR "$file: empty service on line $., please fix\n";
+                exit(1);
+            }
+            if ( $check eq '' ) {
+                print STDERR "$file: empty check on line $., please fix\n";
+                exit(1);
+            }
+            $checks{$service} = $check;
+        }
+    }
+
+    close(FILE);
+
+    return %checks;
+}
+
+sub generate_service {
+# generate service entry for Nagios services.cfg
+# parameters: $host     -> host_name according to hosts.cfg
+#             $service  -> service according to services.def
+#             $contacts -> contact group(s) according contactgroups.cfg
+# returns: complete service entry on success, exit()s on error
+# note: expects %ServiceChecks to be available and loaded
+
+    my $host = shift;
+    my $service = shift;
+    my $contacts = shift;
+
+    my $service_entry;
+
+# run basic sanity checks before everything else
+
+    unless ( $host =~ /\S+/ ) {
+        print STDERR "error: empty hostname given!\n";
+        exit(1);
+    }
+    unless ( $service =~ /\S+/ ) {
+        print STDERR "error: empty service name given!\n";
+        exit(1);
+    }
+    unless ( $contacts =~ /\S+/ ) {
+        print STDERR "error: empty contacts list given!\n";
+        exit(1);
+    }
+    unless ( defined($ServiceChecks{$service}) ) {
+        print STDERR "error: no checks defined for service $service\n";
+        exit(1);
+    }
+    unless ( $ServiceChecks{$service} =~ /\S+/ ) {
+        print STDERR "error: empty checks defined for service $service?!?\n";
+        exit(1);
+    }
+
+    $service_entry  = "\n";
+    $service_entry .= "#### service entry for $service\@$host ######\n";
+    $service_entry .=  "define service{\n";
+    $service_entry .=  "    use                     generic-service\n";
+    $service_entry .=  "\n";
+    $service_entry .=  "    host_name               $host\n";
+    $service_entry .=  "    service_description     $service\n";
+    $service_entry .=  "    is_volatile             0\n";
+    $service_entry .=  "    check_period            24x7\n";
+    $service_entry .=  "    max_check_attempts      3\n";
+    $service_entry .=  "    normal_check_interval   5\n";
+    $service_entry .=  "    retry_check_interval    1\n";
+    $service_entry .=  "    contact_groups          $contacts\n";
+    $service_entry .=  "    notification_interval   120\n";
+    $service_entry .=  "    notification_period     24x7\n";
+    $service_entry .=  "    notification_options    w,u,c,r\n";
+    $service_entry .=  "    check_command           $ServiceChecks{$service}\n";
+    $service_entry .=  "}\n";
+    $service_entry .=  "\n";
+
+    return $service_entry;
+}
+
+
+sub generate_host {
+# generate a host entry for Nagios hosts.cfg
+# parameters: $host_name -> host_name to use
+#             $address   -> IP address of host
+#             $alias     -> alias name of host
+#             $parents   -> parent hosts for this host (can be empty)
+# returns: complete host entry on success, exit()s on error
+
+    my $host_name = shift;
+    my $address = shift;
+    my $alias = shift;
+    my $parents = shift;
+
+    my $host_def;
+
+# run sanity checks before doing anything
+    unless ( $host_name =~ /\S+/ ) {
+        print STDERR "error: empty host_name given!\n";
+        exit(1);
+    }
+    unless ( $address =~ /\S+/ ) {
+        print STDERR "error: empty address given!\n";
+        exit(1);
+    }
+# if no alias is given, set alias = host_name
+    unless ( $alias =~ /\S+/ ) {
+        $alias = $host_name;
+    }
+
+
+    $host_def  = "#### host definition for $host_name #######\n";
+    
+    $host_def .= "define host{\n";
+    $host_def .= "    use                     generic-host\n";
+    $host_def .= "\n";
+    $host_def .= "    host_name               $host_name\n";
+    $host_def .= "    alias                   $alias\n";
+    $host_def .= "    address                 $address\n";
+    if ( $parents =~ /^\S+$/ ) {
+         $host_def .= "    parents                 $parents\n";
+    }
+    $host_def .= "    check_command           check-host-alive\n";
+    $host_def .= "    max_check_attempts      10\n";
+    $host_def .= "    notification_interval   60\n";
+    $host_def .= "    notification_period     24x7\n";
+    $host_def .= "    notification_options    d,u,r\n";
+    $host_def .= "}\n";
+    $host_def .= "\n\n";
+
+    return $host_def;
+}
+
+sub load_services_def {
+# loads the services definitions from the supplied filename
+# and returns it as a hash, keyed on hostname, values being comma-separated
+# lists of services to be checked for this host
+# parameters: $file -> file to reads services definitions from
+# returns: $services{$host_name} = 'service_name[,service_name]'
+
+    my $file = shift;
+
+    my $line;
+    my ($host_name, $service_list);
+    my @services;
+    my %service_def;
+    my $error;
+
+    unless ( -r $file ) {
+        print STDERR "error: file $file not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(FILE, "<$file") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $file for reading\n";
+        exit(1);
+    }
+    while ( $line = <FILE> ) {
+        chomp($line);
+        unless ( ( $line =~ /^\s*#/ ) or
+                 ( $line =~ /^\s*$/ ) ) {
+            ($host_name, $service_list) = split(/\s*=\s*/, $line);
+            unless ( $host_name =~ /\S+/ ) {
+                print STDERR "empty host part in $file, line $.\n";
+                exit(1);
+            }
+            unless ( $service_list =~ /\S+/ ) {
+                print STDERR "empty service list part in $file, line $.\n";
+                exit(1);
+            }
+            @services = split(/\s*,\s*/, $service_list);
+            $service_list = join(',', @services);
+            $service_def{$host_name} = $service_list;
+        }
+    } 
+
+    close(FILE);
+
+    return %service_def;
+}
+
+sub generate_hosts_cfg {
+# generate the hosts.cfg file
+# parameters: $hosts_def  -> file to load host definitions from
+#             $hosts_base -> file to load standard header from
+#             $hosts_cfg  -> file to write hosts.cfg to
+# returns: nothing, but die()s on errors
+
+    my $hosts_def = shift;
+    my $hosts_base = shift;
+    my $hosts_cfg = shift;
+
+    my ($host_name, $address, $parents, $alias);
+    my $base_def = '';
+    my $line;
+    my $host_entry;
+    my $error;
+
+    unless ( -r $hosts_base ) {
+        print STDERR "error: file $hosts_base not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(BASE, "<$hosts_base") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $hosts_base for reading\n";
+        exit(1);
+    }
+    while ( $line = <BASE> ) {
+        $base_def .= $line;
+    }
+    close(BASE);
+
+    unless ( -r $hosts_def ) {
+        print STDERR "error: file $hosts_def not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(DEF, "<$hosts_def") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $hosts_def for reading\n";
+        exit(1);
+    }
+    $error = 0;
+    open(CFG, ">$hosts_cfg") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $hosts_cfg for writing\n";
+        exit(1);
+    }
+
+    print CFG "#\n";
+    print CFG "# automatically generated file\n";
+    print CFG "#\n# DO NOT EDIT\n#\n";
+    print CFG $base_def;
+
+    while ( $line = <DEF> ) {
+        chomp($line);
+        unless ( ( $line =~ /^\s*#/ ) or
+                 ( $line =~ /^\s*$/ ) ) {
+            ($host_name, $address, $parents, $alias) = split(/\s*;\s*/, $line);
+            $host_entry = &generate_host($host_name, $address, 
+                                         $alias, $parents);
+            print CFG $host_entry;
+        }
+    }
+
+    close(DEF);
+    close(CFG);
+}
+
+sub read_argv {
+# reads @ARGV for commandline parameters
+# parameters: none, reads the global @ARGV
+# returns: hash keyed on lowercase key commandline arguments, value set to
+#          1 if found, 0 if not
+
+    my %args;
+    my $param;
+
+# init hash
+
+    %args = (
+                'services' => 0,
+                'hosts' => 0,
+                'hostextinfo' => 0
+            );
+
+    foreach $param ( @ARGV ) {
+        if ( $param =~ /^services$/i ) {
+            $args{'services'} = 1;
+        }
+
+        if ( $param =~ /^hosts$/i ) {
+            $args{'hosts'} = 1;
+        }
+        if ( $param =~ /^hostextinfo$/i ) {
+            $args{'hostextinfo'} = 1; 
+        }
+    }
+
+    return %args;
+}
+
+sub load_services_contacts {
+# loads the services_contacts definition from the specified file
+# parameters: $file -> file to read from
+# returns: hash, keyed on service_definition, contactgroups as value
+
+    my $file = shift;
+
+    my $line;
+    my ($service, $contact);
+    my %data;
+    my $error;
+
+    unless ( -r $file ) {
+        print STDERR "error: file $file not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(FILE, "<$file") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $file for reading\n";
+        exit(1);
+    }
+    while ( $line = <FILE> ) {
+        chomp($line);
+        unless ( ( $line =~ /^\s*#/ ) or 
+                 ( $line =~ /^\s*$/ ) ) {
+            ($service, $contact) = split(/\s*=\s*/, $line);
+            unless ( $service =~ /\S+/ ) {
+                print STDERR "missing service entry in file $file, line $.\n";
+                exit(1);
+            }
+            unless ( $contact =~ /\S+/ ) {
+                print STDERR "missing contact entry in file $file, line $.\n";
+                exit(1);
+            }
+            $data{$service} = $contact;
+        }
+    }
+
+    unless ( defined($data{'DEFAULT'}) ) {
+        print STDERR "no DEFAULT contact definition in file $file\n";
+        exit(1);
+    }
+    close(FILE);
+
+    return %data;
+}
+
+sub load_host_list {
+# loads list of hosts from specified file (in hosts.def format)
+# parameters: $hosts_def -> file to read from
+# returns: list of hosts (as array)
+
+    my $file = shift;
+
+    my $line;
+    my @entry;
+    my $host;
+    my @hosts;
+    my $error;
+
+    unless ( -r $file ) {
+        print STDERR "error: file $file not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(FILE, "<$file") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $file for reading\n";
+        exit(1);
+    }
+    while ( $line = <FILE> ) {
+        chomp($line);
+        unless ( ( $line =~ /^\s*#/ ) or 
+                 ( $line =~ /^\s*$/ ) ) {
+            @entry = split(/\s*;\s*/, $line);
+            $host = shift @entry;
+            unless ( $host =~ /\S+/ ) {
+                print STDERR "failed to get host entry from $file, line $.\n";
+                exit(1);
+            }
+            push(@hosts, $host);
+        }
+    }
+
+    close(FILE);
+
+    return @hosts;
+}
+
+sub generate_services_cfg {
+# generate the Nagios services.cfg and write it to the specified file
+# parameters: $services_def          -> services.def file
+#             $services_checks_def   -> services_checks.def file
+#             $services_contacts_def -> services_contacts.def file
+#             $services_base         -> services.base file
+#             $hosts_def             -> hosts.def file
+#             $services_cfg          -> services.cfg file to write to
+# returns: nothing, but die()s on critical error
+
+    my $services_def = shift;
+    my $services_checks_def = shift;
+    my $services_contacts_def = shift;
+    my $services_base = shift;
+    my $hosts_def = shift;
+    my $services_cfg = shift;
+
+    my %services_contacts;
+    my %services_checks;
+    my %services_defs;
+    my @hosts;
+    my $services_header;
+
+    my @services;
+    my ($host, $service);
+    my $service_def;
+    my $service_host;
+    my $contact_group;
+    my $service_entry;
+    my $services_file;
+
+    my $work;
+    my $error;
+
+# load definitions from files
+
+    %services_contacts = &load_services_contacts($services_contacts_def);
+    %services_checks = &load_service_checks($services_checks_def);
+    %services_defs = &load_services_def($services_def);
+    @hosts = &load_host_list($hosts_def);
+    $services_header = &load_file($services_base);
+
+    %ServiceChecks = %services_checks;
+
+# build header of services_cfg file
+
+    $services_file  = "#\n";
+    $services_file .= "# services.cfg file for Nagios\n#\n";
+    $services_file .= "# autogenerated by mkncf - DO NOT EDIT\n#\n";
+    $services_file .= "# edit instead the files:\n";
+    foreach $work ( $services_def, $services_checks_def, $services_contacts_def,
+                    $services_base, $hosts_def ) {
+        $services_file .= "#   - $work\n";
+    }
+    $services_file .= "#\n";
+    $services_file .= "# and rerun \"mkncf services\"\n#\n";
+
+    $services_file .= $services_header;
+    $services_file .= "\n\n";
+
+# iterate over hosts
+    foreach $host ( @hosts ) {
+        if ( defined($services_defs{$host} ) ) {
+            $services_file .= "############## host $host ################\n";
+            $service_def = $services_defs{$host};
+            @services = split(/,/, $service_def);
+    # iterate over services
+            foreach $service ( @services ) {
+                $service_host  = $service;
+                $service_host .= '@';
+                $service_host .= $host;
+    # find best match for contactgroup definition
+                if ( defined($services_contacts{'DEFAULT'}) ) {
+                    $contact_group = $services_contacts{'DEFAULT'};
+                } else {
+                    print STDERR  "need a DEFAULT service contact definition";
+                    exit(1);
+                }
+                $work  = '@';
+                $work .= $host;
+                if ( defined($services_contacts{$work}) ) {
+                    $contact_group = $services_contacts{$work};
+                }
+                $work  = $service;
+                $work .= '@';
+                if ( defined($services_contacts{$work}) ) {
+                    $contact_group = $services_contacts{$work}; 
+                } 
+                if ( defined($services_contacts{$service_host}) ) {
+                    $contact_group = $services_contacts{$service_host}; 
+                }
+                $service_entry = &generate_service($host, $service,
+                                                   $contact_group);
+                $services_file .= $service_entry;
+            }
+
+        } else {
+            $work  = "warning, no service defined for host $host, ";
+            $work .= "host skipped\n";
+            print STDERR $work;
+        }
+    }
+
+    $error = 0;
+    open(CFG, ">$services_cfg") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $services_cfg for writing\n";
+        exit(1);
+    }
+    print CFG $services_file;
+    close(CFG);
+
+}
+
+sub generate_hostextinfo {
+# generate the hostextinfo from the specified file
+# parameters: $hostextinfo_def -> hostextinfo.def file
+#             $hostextinfo_cfg -> cfg file to generate
+# returns: nothing, but dies on critical error
+
+    my $hostextinfo_def = shift;
+    my $hostextinfo_cfg = shift;
+
+    my $line;
+    my $cfg;
+    my ($host, $info, $image, $x, $y, $desc);
+    my $error;
+
+    unless ( -r $hostextinfo_def ) {
+        print STDERR "error: file $hostextinfo_def not readable\n";
+        exit(1);
+    }
+    $error = 0;
+    open(FILE, "<$hostextinfo_def") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $hostextinfo_def for reading\n";
+        exit(1);
+    }
+    
+    $cfg  = "# CFG file to define the extended host information\n";
+    $cfg .= "# based on data defined in hostextinfo.def\n";
+    $cfg .= "# DO NOT EDIT, edit hostextinfo.def instead\n";
+    $cfg .= "# generated by mkncf\n\n";
+
+
+    while ( $line = <FILE> ) {
+        chomp($line);
+        unless ( ( $line =~ /^\s*#/  ) or
+                 ( $line =~ /^\s*$/ ) ) {
+            ($host, $info, $image, $x, $y, $desc) = split(/\s*;\s*/, $line);
+
+            unless ( $host =~ /\S+/ ) {
+                print STDERR "no host entry in $hostextinfo_def, line $.\n";
+                exit(1);
+            }
+
+
+            $cfg .= "define hostextinfo{\n";
+            $cfg .= "    host_name       $host\n";
+            if ( $info =~ /\S+/ ) {
+                $cfg .= "    notes_url       $info\n";
+            }
+            if ( $desc =~ /\S+/ ) {
+                $cfg .= "    icon_image_alt  $desc\n";
+            } else {
+                $cfg .= "    icon_image_alt  $host\n";
+            }
+            if ( $image =~ /\S+/ ) {
+                $cfg .= "    vrml_image      $image.jpg\n";
+                $cfg .= "    statusmap_image $image.gd2\n";
+                $cfg .= "    icon_image      $image.gif\n";
+            } else {
+                print STDERR "warning: no icon_basename defined in ";
+                print STDERR "$hostextinfo_def, line $.\n";
+            }
+
+            if ( ( $x =~ /^\s*\d+\s*$/ ) and
+                 ( $y =~ /^\s*\d+\s*$/ ) ) {
+                $cfg .= "    2d_coords       $x, $y\n";
+            } else {
+                print STDERR "warning: x, y coordinates not set in ";
+                print STDERR "$hostextinfo_def, line $., set to 0\n";
+                $cfg .= "    2d_coords       0, 0\n";
+            }
+# 3D coordinates are toy crap and not supported
+            $cfg .= "    3d_coords       0,0\n";
+            $cfg .= "}\n";
+
+        }
+    }
+
+    close(FILE);
+
+    $error = 0;
+    open(CFG, ">$hostextinfo_cfg") or $error = 1;
+    if ( $error == 1 ) {
+        print STDERR "cannot open $hostextinfo_cfg for writing\n";
+        exit(1);
+    }
+    print CFG $cfg;
+    close(CFG);
+}
+
+
+#################### main ###########################
+
+my %GenType;
+
+%GenType = &read_argv();
+
+if ( $GenType{'services'} == 1 ) {
+    &generate_services_cfg('services.def', 'services_checks.def', 
+                           'services_contacts.def', 'services.base',
+                           'hosts.def', 'services.cfg');
+}
+
+
+if ( $GenType{'hosts'} == 1 ) {
+    &generate_hosts_cfg('hosts.def', 'hosts.base', 'hosts.cfg');
+}
+
+if ( $GenType{'hostextinfo'} == 1 ) {
+    &generate_hostextinfo('hostextinfo.def', 'hostextinfo.cfg');
+}
+
+

@@ -1,0 +1,69 @@
+README for mkncf
+version: $Id: README,v 1.3 2003/05/04 20:39:20 als Exp $
+author: Alexander Schreiber <als@thangorodrim.de>
+
+mkncf - MaKe Nagios Configuration Files
+---------------------------------------
+
+The basic idea of mkncf is to simplify the maintenance of Nagios configuration
+files. So, instead of copy-pasting and old section and editing it to add
+a new host or service, you add/edit a single line in a definition file,
+type "make", reload Nagios and are done. How does that sound? ;-)
+
+Basic concept:
+--------------
+
+Currently, mkncf generates the following files for Nagios:
+ - hosts.cfg - the host configuration (which hosts are to be monitored),
+ - services.cfg - the services configuration (which services should be
+                  monitored),
+ - hostextinfo.cfg - extended host info (icons for the web interface, longer
+                     descriptions of host, ...)
+
+These are generated from several files:
+ - hosts.cfg is generated from
+   - hosts.base - this file is included at the head of the newly generated
+                  hosts.cfg and basically contains the default host entry
+                  template,
+   - hosts.def - contains the hosts definitions: host_name, IP address, 
+                 (list of) parent node(s), short description; one line
+                 per host, entries separated by semicolons,
+ - hostextinfo.cfg  is generated from
+   - hostextinfo.def - contains the extended host information: host_name,
+                       URL to host page, basename (dir/filename without
+                       extension) to image file (is supposed to exist
+                       as .gif, .gd2, .jpg), the x/y coordinates for the
+                       status map display and the host description for it
+ - services.cfg is generated from
+   - services.base - this file is included at the head of the newly generated
+                     services.cfg and basically contains the default service
+                     entry template, 
+   - services_contacts.def - service contact information: whom to pester in
+                             case of trouble, uses the contact definitions
+                             from Nagios,
+   - services_checks.def - service check definitions: name and definition
+                           for service checks, name cannot contain spaces
+   - services.def - which services to check on each host, one line per host
+
+
+Consistency and error checking
+------------------------------
+
+mkncf performs basic consistency checks while loading the .def files and
+generating the .cfg files, but before writing anything out. So, if you
+messed up your .def files, chances are that mkncf will the most obvious
+errors (like missing definitions) and will _not_ produce fucked up
+.cfg files for Nagios. The consistency checks are basically aimed at 
+catching missing configuration entries or catching very obviously invalid
+values (like using letters as pixel positions).
+
+It is , however, strongly recommend to use the provided Makefile for mkncf,
+espcially the "check" target to use Nagios to validate your generated 
+.cfg files.
+
+
+License:
+--------
+
+This software is distributed under the GNU General Public License (GPL).
+

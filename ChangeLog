@@ -1,0 +1,47 @@
+2003-05-08 21:49  als
+
+	* mkncf: Reworked consistency checks.
+
+2003-05-04 22:39  als
+
+	* README, hostextinfo.def, hosts.def, mkncf, services.def,
+	services_contacts.def: Added lots of consistency checks, added
+	errorhandling. Put an example configuration into the .def Files.
+	Updated documentation.
+
+2003-05-04 22:38  als
+
+	* Makefile: Made Makefile slightly more flexible.
+
+2003-04-18 14:06  als
+
+	* README, hostextinfo.def: Updated documentation and sample
+	configuration.
+
+2003-04-18 14:04  als
+
+	* README: Added README as minimal documentation.
+
+2003-04-18 13:34  als
+
+	* Makefile: Fixed Makefile to use hostextinfo.cfg instead of
+	hostextinfo.sql.
+
+2003-04-15 22:28  als
+
+	* mkncf: Modified generator function for hostextinfo to generate a
+	hostextinfo.cfg file (following the Nagios cfg file style, suitable
+	for the template based configuration approach) instead of SQL.
+
+2003-04-11 23:13  als
+
+	* Makefile, hostextinfo.def, hosts.base, hosts.def, mkncf,
+	services.base, services.def, services_checks.def,
+	services_contacts.def: Initial revision
+
+2003-04-11 23:13  als
+
+	* Makefile, hostextinfo.def, hosts.base, hosts.def, mkncf,
+	services.base, services.def, services_checks.def,
+	services_contacts.def: Initial CVS import of first version of code.
+
