@@ -1,0 +1,30 @@
+#
+# definition file for mknagconf
+#
+# modified by: Job Snijders <job@snijders-it.nl>
+# author: Alexander Schreiber <als@thangorodrim.de>
+#
+# servicecheck definitions file for generate
+#
+# used by mknagconf
+#
+# syntax: 
+#         service_name = service definition
+# empty and comment lines (starting with #) 
+# are ignored
+# note: service_names _CANNOT_ contain spaces
+
+ping = check_ping!3000.0,80%!5000.0,100%
+ping6 = check_ping6!3000.0,80%!5000.0,100%
+telnet = check_telnet
+ssh = check_ssh
+ssh6 = check_ssh6
+dig = check_dig!www.coloclue.net
+dig6 = check_dig6!www.coloclue.net
+smtp = check_smtp
+smtp6 = check_smtp6
+http = check_http
+http6 = check_http6
+ftp = check_ftp
+http = check_http
+

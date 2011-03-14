@@ -1,0 +1,22 @@
+#
+# definition file for mkncf
+#
+# modified by: Job Snijders <job@snijders-it.nl>
+# author: Alexander Schreiber <als@thangorodrim.de>
+#
+# hosts.def
+# hosts definition file
+# 
+# used by mkncf to generate (together with hosts.base) the hosts.cfg file
+# 
+# format: host_name; address; addres6; parents; alias
+# parents field can be empty
+#
+# lines beginning with hashmarks and empty lines are ignored
+#
+# example:
+#   hpserv;192.168.23.4;2001:db8:1::65;coregate;central HP server
+
+
+hpserv;192.168.23.4;2001:db8:1::65;coregate;central HP server
+
