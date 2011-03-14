@@ -21,6 +21,5 @@
 # example:
 #   hpserv;/serverinfo/hpserv.html;hpux;0;0;HP-UX server
 
-hpserv;/serverinfo/hpserv.html;hpux;7;7;HP-UX server
 
 
