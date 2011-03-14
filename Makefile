@@ -7,7 +7,10 @@
 
 # adopt this if you have the executable for mkncf somewhere else
 # (like /usr/local/bin)
-MKNCF=./mkncf
+MKNCF=./mknagconf
+
+# please note that the trailing / is important
+
 DEF_PATH=./definitions/
 CONFD_PATH=./conf.d/
 
