@@ -7,7 +7,7 @@
 
 # adopt this if you have the executable for mkncf somewhere else
 # (like /usr/local/bin)
-MKNCF=./mknagconf
+MKNCF=/usr/local/bin/mknagconf
 
 # please note that the trailing / is important
 
